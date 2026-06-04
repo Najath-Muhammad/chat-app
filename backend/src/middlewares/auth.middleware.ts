@@ -9,13 +9,15 @@ export const auth = (req: AuthRequest, res: Response, next: NextFunction): void 
 
     try {
 
-        const token = req.headers.authorization
+        const tokenHeader = req.headers.authorization;
 
-        if(!token) {
+        if(!tokenHeader) {
             return res.status(401).json({
                 message: "No token"
             })
         }
+
+        const token = tokenHeader.startsWith("Bearer ") ? tokenHeader.split(" ")[1] : tokenHeader;
 
         const decoded = jwt.verify(
             token,
