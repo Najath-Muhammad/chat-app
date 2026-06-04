@@ -33,11 +33,59 @@ function App() {
       } else {
         document.documentElement.style.removeProperty('--chat-wallpaper');
       }
+
+      if (settings.preventScreenshots) {
+        document.body.classList.add('prevent-screenshots');
+      } else {
+        document.body.classList.remove('prevent-screenshots');
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const settings = JSON.parse(localStorage.getItem('app-settings') || '{}');
+      if (settings.preventScreenshots) {
+        if (e.key === 'PrintScreen' || (e.ctrlKey && e.key === 'p') || (e.metaKey && e.shiftKey && (e.key === 's' || e.key === '3' || e.key === '4'))) {
+          e.preventDefault();
+          document.body.style.opacity = '0';
+          setTimeout(() => { document.body.style.opacity = '1'; }, 1000);
+          alert('Screenshots and printing are restricted for privacy.');
+        }
+      }
+    };
+    
+    const handleCopy = (e: ClipboardEvent) => {
+      const settings = JSON.parse(localStorage.getItem('app-settings') || '{}');
+      if (settings.preventScreenshots) {
+        e.preventDefault();
+        alert('Copying text is restricted for privacy.');
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      const settings = JSON.parse(localStorage.getItem('app-settings') || '{}');
+      if (settings.preventScreenshots) {
+        if (document.hidden) {
+          document.body.style.filter = 'blur(15px)';
+        } else {
+          document.body.style.filter = 'none';
+        }
+      } else {
+        document.body.style.filter = 'none';
+      }
     };
 
     applyTheme();
     window.addEventListener('theme-changed', applyTheme);
-    return () => window.removeEventListener('theme-changed', applyTheme);
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('copy', handleCopy);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      window.removeEventListener('theme-changed', applyTheme);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('copy', handleCopy);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   return (

@@ -703,6 +703,21 @@ const Chat: React.FC = () => {
                             <input type="file" accept="image/*" onChange={handleWallpaperChange} style={{ fontSize: '14px' }} />
                         </div>
                         
+                        <div style={{ marginBottom: '24px', padding: '12px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '12px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer', color: 'var(--text-main)' }}>
+                                <input 
+                                    type="checkbox" 
+                                    checked={settings.preventScreenshots || false}
+                                    onChange={e => setSettings({...settings, preventScreenshots: e.target.checked})}
+                                    style={{ marginTop: '4px' }}
+                                />
+                                <div>
+                                    <div style={{ fontWeight: 600, marginBottom: '4px' }}>Screenshot & Privacy Protection</div>
+                                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Prevents text copying, printing, and automatically blurs the screen when OS snipping tools or other apps are opened.</div>
+                                </div>
+                            </label>
+                        </div>
+                        
                         <div className="modal-actions">
                             <button className="btn-secondary" onClick={() => setShowSettings(false)}>Cancel</button>
                             <button className="btn-primary" onClick={handleSaveSettings} style={{ flex: 1, margin: 0 }}>Apply</button>
