@@ -22,11 +22,12 @@ export default (io: any) => {
         })
 
         socket.on("send-message", async(data: any) => {
-            const { senderId, receiverId, conversationId, text, image, audio, isEphemeral } = data;
+            const { senderId, receiverId, conversationId, text, image, audio, isEphemeral, replyTo } = data;
             
             const messageData: any = { senderId, conversationId, text, seen: false };
             if (image) messageData.image = image;
             if (audio) messageData.audio = audio;
+            if (replyTo) messageData.replyTo = replyTo;
             if (isEphemeral) {
                 messageData.expiresAt = new Date(Date.now() + 60 * 60 * 1000);
             }
@@ -54,6 +55,20 @@ export default (io: any) => {
                 if (sender) {
                     io.to(sender.socketId).emit("message-seen", { messageId: message._id });
                 }
+            }
+        });
+
+        socket.on('react-message', async (data: any) => {
+            const { messageId, reaction, receiverId } = data;
+            try {
+                const Message = require('../models/Message').default;
+                await Message.findByIdAndUpdate(messageId, { reaction });
+                const receiverSocket = users.find(user => user.userId === receiverId);
+                if (receiverSocket) {
+                    io.to(receiverSocket.socketId).emit('message-reaction', { messageId, reaction });
+                }
+            } catch (error) {
+                console.error("Error saving reaction:", error);
             }
         });
 

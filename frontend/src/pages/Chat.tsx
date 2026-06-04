@@ -13,6 +13,8 @@ interface Message {
     seen: boolean;
     image?: string;
     audio?: string;
+    reaction?: string;
+    replyTo?: string;
 }
 
 interface User {
@@ -68,6 +70,10 @@ const Chat: React.FC = () => {
     const audioChunksRef = useRef<Blob[]>([]);
     const timerIntervalRef = useRef<number | null>(null);
 
+    // Reply & Hover State
+    const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+    const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
+
     const token = localStorage.getItem('token');
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -116,8 +122,14 @@ const Chat: React.FC = () => {
             }
         });
 
-        socket.on('message-seen', ({ messageId }: { messageId: string }) => {
+        // Listen for message seen
+        socket.on('message-seen', ({ messageId }) => {
             setMessages(prev => prev.map(m => m._id === messageId ? { ...m, seen: true } : m));
+        });
+
+        // Listen for message reactions
+        socket.on('message-reaction', ({ messageId, reaction }) => {
+            setMessages(prev => prev.map(m => m._id === messageId ? { ...m, reaction } : m));
         });
 
         socket.on('show-typing', () => {
@@ -126,8 +138,12 @@ const Chat: React.FC = () => {
         });
 
         return () => {
-            socket.off('receive-message');
+            socket.off('new-message');
+            socket.off('typing');
+            socket.off('stop-typing');
             socket.off('message-seen');
+            socket.off('message-reaction');
+            socket.off('receive-message');
             socket.off('show-typing');
         };
     }, [activeConversation, currentUserObj._id]);
@@ -176,6 +192,7 @@ const Chat: React.FC = () => {
             text,
             image: attachment,
             audio: audioAttachment,
+            replyTo: replyingTo?._id,
             isEphemeral
         });
         
@@ -184,6 +201,7 @@ const Chat: React.FC = () => {
             text,
             image: attachment,
             audio: audioAttachment,
+            replyTo: replyingTo?._id,
             senderId: currentUserObj._id,
             conversationId: activeConversation._id,
             seen: false
@@ -193,6 +211,12 @@ const Chat: React.FC = () => {
         setText('');
         setAttachment('');
         setAudioAttachment('');
+        setReplyingTo(null);
+    };
+
+    const reactToMessage = (messageId: string, reaction: string) => {
+        socket.emit('react-message', { messageId, reaction, receiverId: activeUser?._id });
+        setMessages(prev => prev.map(m => m._id === messageId ? { ...m, reaction } : m));
     };
 
     const handleAttachmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -408,8 +432,34 @@ const Chat: React.FC = () => {
                     <div className="messages-area">
                         {messages.map(msg => {
                             const isSent = msg.senderId === currentUserObj._id;
+                            const repliedMsg = msg.replyTo ? messages.find(m => m._id === msg.replyTo) : null;
+                            
                             return (
-                                <div key={msg._id} className={`message ${isSent ? 'sent' : 'received'}`}>
+                                <div 
+                                    key={msg._id} 
+                                    className={`message ${isSent ? 'sent' : 'received'}`}
+                                    onMouseEnter={() => setHoveredMessageId(msg._id)}
+                                    onMouseLeave={() => setHoveredMessageId(null)}
+                                >
+                                    {/* Hover Actions */}
+                                    {hoveredMessageId === msg._id && (
+                                        <div style={{ position: 'absolute', [isSent ? 'left' : 'right']: '-75px', top: '50%', transform: 'translateY(-50%)', display: 'flex', gap: '4px', zIndex: 10 }}>
+                                            <button onClick={() => reactToMessage(msg._id, '❤️')} style={{ background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer', transition: 'transform 0.2s' }}>❤️</button>
+                                            <button onClick={() => reactToMessage(msg._id, '😂')} style={{ background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer', transition: 'transform 0.2s' }}>😂</button>
+                                            <button onClick={() => setReplyingTo(msg)} style={{ background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer', transition: 'transform 0.2s' }}>↩️</button>
+                                        </div>
+                                    )}
+
+                                    {/* Reply Bubble */}
+                                    {repliedMsg && (
+                                        <div style={{ padding: '6px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', marginBottom: '8px', fontSize: '12px', borderLeft: '3px solid var(--primary)', cursor: 'pointer' }}>
+                                            <div style={{ color: 'var(--primary)', fontWeight: 600 }}>Replied</div>
+                                            <div style={{ color: 'var(--text-muted)' }}>
+                                                {repliedMsg.text || (repliedMsg.image ? 'Image' : 'Audio')}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {msg.image && (
                                         <img src={msg.image} style={{ maxWidth: '100%', borderRadius: '8px', marginBottom: msg.text ? '8px' : '0' }} alt="attachment" />
                                     )}
@@ -418,6 +468,13 @@ const Chat: React.FC = () => {
                                     )}
                                     {msg.text}
                                     {isSent && <div className="message-status">{msg.seen ? 'Seen' : 'Delivered'}</div>}
+                                    
+                                    {/* Reaction */}
+                                    {msg.reaction && (
+                                        <div style={{ position: 'absolute', bottom: '-10px', [isSent ? 'right' : 'left']: '10px', background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: '12px', padding: '2px 6px', fontSize: '14px', zIndex: 5, boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}>
+                                            {msg.reaction}
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })}
@@ -448,7 +505,19 @@ const Chat: React.FC = () => {
                             </div>
                         )}
                         
-                        <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '24px', padding: '4px 12px', gap: '8px', border: '1px solid var(--border)', width: '100%' }}>
+                        {replyingTo && (
+                            <div style={{ padding: '8px 16px', background: 'var(--bg-panel)', borderRadius: '12px 12px 0 0', display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '1px solid var(--border)', margin: '0 4px' }}>
+                                <div style={{ flex: 1, borderLeft: '3px solid var(--primary)', paddingLeft: '12px' }}>
+                                    <div style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 600 }}>Replying to</div>
+                                    <div style={{ fontSize: '13px', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {replyingTo.text || (replyingTo.image ? 'Image' : 'Audio')}
+                                    </div>
+                                </div>
+                                <button onClick={() => setReplyingTo(null)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px', fontSize: '16px' }}>✕</button>
+                            </div>
+                        )}
+                        
+                        <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255, 255, 255, 0.05)', borderRadius: replyingTo ? '0 0 24px 24px' : '24px', padding: '4px 12px', gap: '8px', border: '1px solid var(--border)', width: '100%' }}>
                             {isRecording ? (
                                 <div style={{ flex: 1, display: 'flex', alignItems: 'center', padding: '12px 8px', gap: '12px' }}>
                                     <div style={{ width: '10px', height: '10px', background: '#ef4444', borderRadius: '50%', animation: 'pulse 1.5s infinite' }}></div>
