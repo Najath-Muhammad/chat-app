@@ -8,8 +8,10 @@ interface Message {
     _id: string;
     text: string;
     senderId: string;
+    senderId: string;
     conversationId: string;
     seen: boolean;
+    image?: string;
 }
 
 interface User {
@@ -42,8 +44,13 @@ const Chat: React.FC = () => {
     const [editBio, setEditBio] = useState('');
     const [editPic, setEditPic] = useState('');
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [scale, setScale] = useState(1.2);
     const editorRef = useRef<any>(null);
+    
+    // Message Attachment State
+    const [attachment, setAttachment] = useState<string>('');
+    const [isEphemeral, setIsEphemeral] = useState(false);
 
     const token = localStorage.getItem('token');
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -144,28 +151,38 @@ const Chat: React.FC = () => {
     };
 
     const handleSendMessage = () => {
-        if (!text.trim() || !activeConversation || !activeUser) return;
+        if ((!text.trim() && !attachment) || !activeConversation || !activeUser) return;
         
         socket.emit('send-message', {
-            senderId: currentUser._id,
+            senderId: currentUserObj._id,
             receiverId: activeUser._id,
             conversationId: activeConversation._id,
-            text
+            text,
+            image: attachment,
+            isEphemeral
         });
         
-        // Optimistically add to UI (though server also broadcasts, but typically you add self message directly)
-        // For this architecture, let's wait for receive or add it manually.
-        // Wait, the backend only emits to receiver! We must add it manually to our UI:
         const newMessage = {
             _id: Date.now().toString(), // temporary ID until fetch
             text,
+            image: attachment,
             senderId: currentUserObj._id,
             conversationId: activeConversation._id,
             seen: false
         };
-        setMessages(prev => [...prev, newMessage]);
+        setMessages(prev => [...prev, newMessage as Message]);
         
         setText('');
+        setAttachment('');
+    };
+
+    const handleAttachmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => setAttachment(reader.result as string);
+            reader.readAsDataURL(file);
+        }
     };
 
     const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -291,6 +308,9 @@ const Chat: React.FC = () => {
                             const isSent = msg.senderId === currentUserObj._id;
                             return (
                                 <div key={msg._id} className={`message ${isSent ? 'sent' : 'received'}`}>
+                                    {msg.image && (
+                                        <img src={msg.image} style={{ maxWidth: '100%', borderRadius: '8px', marginBottom: msg.text ? '8px' : '0' }} alt="attachment" />
+                                    )}
                                     {msg.text}
                                     {isSent && <div className="message-status">{msg.seen ? 'Seen' : 'Delivered'}</div>}
                                 </div>
@@ -300,20 +320,35 @@ const Chat: React.FC = () => {
                         <div ref={messagesEndRef} />
                     </div>
 
-                    <div className="chat-input-area">
-                        <input 
-                            type="text" 
-                            value={text} 
-                            onChange={handleTyping} 
-                            placeholder="Type your message..." 
-                            onKeyPress={e => e.key === 'Enter' && handleSendMessage()}
-                        />
-                        <button onClick={handleSendMessage}>
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <line x1="22" y1="2" x2="11" y2="13"></line>
-                                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                            </svg>
-                        </button>
+                    <div className="chat-input-area" style={{ display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ display: 'flex', gap: '16px', marginBottom: '8px' }}>
+                            <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '14px', color: 'var(--text-muted)' }}>
+                                <input type="file" accept="image/*" onChange={handleAttachmentChange} style={{ display: 'none' }} />
+                                📎 Attach Image
+                            </label>
+                            {attachment && <span style={{ fontSize: '12px', color: 'var(--primary)' }}>Image attached! (Click 📎 to change)</span>}
+                            
+                            <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '14px', color: 'var(--text-muted)', marginLeft: 'auto' }}>
+                                <input type="checkbox" checked={isEphemeral} onChange={(e) => setIsEphemeral(e.target.checked)} />
+                                ⏱️ Disappear in 1hr
+                            </label>
+                        </div>
+                        <div style={{ display: 'flex', width: '100%' }}>
+                            <input 
+                                type="text" 
+                                value={text} 
+                                onChange={handleTyping} 
+                                placeholder="Type your message..." 
+                                onKeyPress={e => e.key === 'Enter' && handleSendMessage()}
+                                style={{ flex: 1 }}
+                            />
+                            <button onClick={handleSendMessage}>
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
             ) : (

@@ -17,6 +17,14 @@ const messageSchema = new mongoose.Schema({
     seen: {
         type: Boolean,
         default: false
+    },
+    image: {
+        type: String,
+        default: ""
+    },
+    expiresAt: {
+        type: Date,
+        expires: 0 // Automatically deletes the document when current time >= expiresAt
     }
 
 }, {
