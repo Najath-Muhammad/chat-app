@@ -67,6 +67,9 @@ const Chat: React.FC = () => {
     }, [navigate, token, currentUser._id]);
 
     useEffect(() => {
+        // Ensure socket is connected and user is registered, even after page refresh
+        socket.emit('add-user', currentUser._id);
+
         socket.on('receive-message', (message: Message) => {
             if (activeConversation && message.conversationId === activeConversation._id) {
                 setMessages(prev => [...prev, message]);
@@ -79,6 +82,10 @@ const Chat: React.FC = () => {
             }
         });
 
+        socket.on('message-seen', ({ messageId }: { messageId: string }) => {
+            setMessages(prev => prev.map(m => m._id === messageId ? { ...m, seen: true } : m));
+        });
+
         socket.on('show-typing', () => {
             setIsTyping(true);
             setTimeout(() => setIsTyping(false), 2000);
@@ -86,9 +93,10 @@ const Chat: React.FC = () => {
 
         return () => {
             socket.off('receive-message');
+            socket.off('message-seen');
             socket.off('show-typing');
         };
-    }, [activeConversation]);
+    }, [activeConversation, currentUser._id]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -137,13 +145,14 @@ const Chat: React.FC = () => {
         // Optimistically add to UI (though server also broadcasts, but typically you add self message directly)
         // For this architecture, let's wait for receive or add it manually.
         // Wait, the backend only emits to receiver! We must add it manually to our UI:
-        setMessages(prev => [...prev, {
-            _id: Date.now().toString(),
+        const newMessage = {
+            _id: Date.now().toString(), // temporary ID until fetch
             text,
             senderId: currentUser._id,
             conversationId: activeConversation._id,
             seen: false
-        }]);
+        };
+        setMessages(prev => [...prev, newMessage]);
         
         setText('');
     };

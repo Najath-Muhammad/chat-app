@@ -21,7 +21,6 @@ const Login: React.FC = () => {
             localStorage.setItem('token', token);
             localStorage.setItem('user', JSON.stringify(user));
             
-            socket.emit('add-user', user._id);
             navigate('/chat');
         } catch (error) {
             console.error('Login failed', error);

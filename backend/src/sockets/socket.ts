@@ -59,7 +59,13 @@ export default (io: any) => {
         });
 
         socket.on("seen-message", async ({ messageId }: { messageId: string }) => {
-            await Message.findByIdAndUpdate(messageId, { seen: true });
+            const message = await Message.findByIdAndUpdate(messageId, { seen: true }, { new: true });
+            if (message) {
+                const sender = users.find(user => user.userId === message.senderId.toString());
+                if (sender) {
+                    io.to(sender.socketId).emit("message-seen", { messageId: message._id });
+                }
+            }
         });
 
         socket.on("disconnect", () => {
