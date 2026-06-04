@@ -331,38 +331,45 @@ const Chat: React.FC = () => {
                         <div ref={messagesEndRef} />
                     </div>
 
-                    <div className="chat-input-area" style={{ display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ display: 'flex', gap: '16px', marginBottom: '8px' }}>
-                            <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '14px', color: 'var(--text-muted)' }}>
-                                <input type="file" accept="image/*" onChange={handleAttachmentChange} style={{ display: 'none' }} />
-                                📎 Attach Image
-                            </label>
-                            
-                            <button 
-                                onClick={() => setShowCamera(true)}
-                                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                            >
-                                📷 Camera
-                            </button>
-
-                            {attachment && <span style={{ fontSize: '12px', color: 'var(--primary)' }}>Image attached! (Click 📎 to change)</span>}
-                            
-                            <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '14px', color: 'var(--text-muted)', marginLeft: 'auto' }}>
-                                <input type="checkbox" checked={isEphemeral} onChange={(e) => setIsEphemeral(e.target.checked)} />
-                                ⏱️ Disappear in 1hr
-                            </label>
-                        </div>
-                        <div style={{ display: 'flex', width: '100%' }}>
+                    <div className="chat-input-area" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {attachment && (
+                            <div style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <img src={attachment} style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '8px' }} alt="attachment preview" />
+                                <span style={{ fontSize: '13px', color: 'var(--text-main)', flex: 1 }}>Image attached</span>
+                                <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-muted)' }}>
+                                    <input type="checkbox" checked={isEphemeral} onChange={(e) => setIsEphemeral(e.target.checked)} />
+                                    ⏱️ 1hr Delete
+                                </label>
+                                <button onClick={() => setAttachment('')} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px', fontSize: '16px' }}>✕</button>
+                            </div>
+                        )}
+                        
+                        <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '24px', padding: '4px 12px', gap: '8px', border: '1px solid var(--border)', width: '100%' }}>
                             <input 
                                 type="text" 
                                 value={text} 
                                 onChange={handleTyping} 
-                                placeholder="Type your message..." 
+                                placeholder="Type a message..." 
                                 onKeyPress={e => e.key === 'Enter' && handleSendMessage()}
-                                style={{ flex: 1 }}
+                                style={{ flex: 1, background: 'transparent', border: 'none', color: 'white', padding: '12px 8px', outline: 'none', fontSize: '15px' }}
                             />
-                            <button onClick={handleSendMessage}>
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            
+                            <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--text-muted)', padding: '8px', margin: 0, transition: 'color 0.2s' }} title="Attach Image" className="icon-btn">
+                                <input type="file" accept="image/*" onChange={handleAttachmentChange} style={{ display: 'none' }} />
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+                                </svg>
+                            </label>
+                            
+                            <button onClick={() => setShowCamera(true)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '8px', margin: 0, transition: 'color 0.2s' }} title="Camera" className="icon-btn">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                                    <circle cx="12" cy="13" r="4"></circle>
+                                </svg>
+                            </button>
+                            
+                            <button onClick={handleSendMessage} style={{ background: 'var(--primary)', border: 'none', color: 'white', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', marginLeft: '4px', transition: 'all 0.2s' }} className="send-btn">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <line x1="22" y1="2" x2="11" y2="13"></line>
                                     <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
                                 </svg>
