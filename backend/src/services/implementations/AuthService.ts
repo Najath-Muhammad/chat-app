@@ -1,15 +1,16 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { AuthRepository } from "../repositories/auth.repository";
+import { IAuthService } from "../interfaces/IAuthService";
+import { IAuthRepository } from "../../repositories/interfaces/IAuthRepository";
 
-export class AuthService {
-    private authRepository: AuthRepository;
+export class AuthService implements IAuthService {
+    private authRepository: IAuthRepository;
 
-    constructor() {
-        this.authRepository = new AuthRepository();
+    constructor(authRepository: IAuthRepository) {
+        this.authRepository = authRepository;
     }
 
-    async registerService(userData: any) {
+    async registerService(userData: any): Promise<any> {
         const { username, email, password } = userData;
         const existingUser = await this.authRepository.findUserByEmail(email);
         
@@ -27,7 +28,7 @@ export class AuthService {
         return user;
     }
 
-    async loginService(credentials: any) {
+    async loginService(credentials: any): Promise<any> {
         const { email, password } = credentials;
         const user = await this.authRepository.findUserByEmail(email);
         

@@ -1,9 +1,14 @@
 import { Router } from "express";
 import { auth } from "../middlewares/auth.middleware";
-import { MessageController } from "../controllers/message.controller";
+import { MessageController } from "../controllers/implementations/MessageController";
+import { MessageService } from "../services/implementations/MessageService";
+import { MessageRepository } from "../repositories/implementations/MessageRepository";
 
 const router = Router();
-const messageController = new MessageController();
+
+const messageRepository = new MessageRepository();
+const messageService = new MessageService(messageRepository);
+const messageController = new MessageController(messageService);
 
 router.get("/:id", auth, messageController.getMessages);
 

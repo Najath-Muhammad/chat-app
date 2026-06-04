@@ -1,11 +1,12 @@
 import { Request, Response } from "express";
-import { AuthService } from "../services/auth.service";
+import { IAuthController } from "../interfaces/IAuthController";
+import { IAuthService } from "../../services/interfaces/IAuthService";
 
-export class AuthController {
-    private authService: AuthService;
+export class AuthController implements IAuthController {
+    private authService: IAuthService;
 
-    constructor() {
-        this.authService = new AuthService();
+    constructor(authService: IAuthService) {
+        this.authService = authService;
     }
 
     register = async (req: Request, res: Response): Promise<any> => {

@@ -1,12 +1,13 @@
 import { Response } from "express";
-import { AuthRequest } from "../middlewares/auth.middleware";
-import { ConversationService } from "../services/conversation.service";
+import { AuthRequest } from "../../middlewares/auth.middleware";
+import { IConversationController } from "../interfaces/IConversationController";
+import { IConversationService } from "../../services/interfaces/IConversationService";
 
-export class ConversationController {
-    private conversationService: ConversationService;
+export class ConversationController implements IConversationController {
+    private conversationService: IConversationService;
 
-    constructor() {
-        this.conversationService = new ConversationService();
+    constructor(conversationService: IConversationService) {
+        this.conversationService = conversationService;
     }
 
     createConversation = async (req: AuthRequest, res: Response): Promise<any> => {
