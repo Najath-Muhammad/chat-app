@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
-import socket from '../socket/socket';
 
 const Login: React.FC = () => {
     const [email, setEmail] = useState('');

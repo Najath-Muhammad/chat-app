@@ -8,7 +8,6 @@ interface Message {
     _id: string;
     text: string;
     senderId: string;
-    senderId: string;
     conversationId: string;
     seen: boolean;
     image?: string;
@@ -43,7 +42,6 @@ const Chat: React.FC = () => {
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [editBio, setEditBio] = useState('');
     const [editPic, setEditPic] = useState('');
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [scale, setScale] = useState(1.2);
     const editorRef = useRef<any>(null);
@@ -140,7 +138,7 @@ const Chat: React.FC = () => {
             
             // Mark last messages as seen ideally, but for demo frontend:
             msgRes.data.forEach((m: Message) => {
-                if (m.senderId !== currentUser._id && !m.seen) {
+                if (m.senderId !== currentUserObj._id && !m.seen) {
                     socket.emit('seen-message', { messageId: m._id });
                 }
             });
