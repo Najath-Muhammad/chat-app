@@ -51,6 +51,17 @@ export default (io: any) => {
             }
         })
 
+        socket.on("typing", ({ receiverId }: { receiverId: string }) => {
+            const receiver = users.find(user => user.userId === receiverId);
+            if (receiver) {
+                io.to(receiver.socketId).emit("show-typing");
+            }
+        });
+
+        socket.on("seen-message", async ({ messageId }: { messageId: string }) => {
+            await Message.findByIdAndUpdate(messageId, { seen: true });
+        });
+
         socket.on("disconnect", () => {
             users = users.filter(
                 user => user.socketId !== socket.id
