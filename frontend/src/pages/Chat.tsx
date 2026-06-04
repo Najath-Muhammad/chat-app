@@ -12,6 +12,7 @@ interface Message {
     conversationId: string;
     seen: boolean;
     image?: string;
+    audio?: string;
 }
 
 interface User {
@@ -58,6 +59,12 @@ const Chat: React.FC = () => {
     // Settings State
     const [showSettings, setShowSettings] = useState(false);
     const [settings, setSettings] = useState(() => JSON.parse(localStorage.getItem('app-settings') || '{}'));
+    
+    // Audio Recording State
+    const [isRecording, setIsRecording] = useState(false);
+    const [audioAttachment, setAudioAttachment] = useState<string>('');
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const audioChunksRef = useRef<Blob[]>([]);
 
     const token = localStorage.getItem('token');
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -158,7 +165,7 @@ const Chat: React.FC = () => {
     };
 
     const handleSendMessage = () => {
-        if ((!text.trim() && !attachment) || !activeConversation || !activeUser) return;
+        if ((!text.trim() && !attachment && !audioAttachment) || !activeConversation || !activeUser) return;
         
         socket.emit('send-message', {
             senderId: currentUserObj._id,
@@ -166,6 +173,7 @@ const Chat: React.FC = () => {
             conversationId: activeConversation._id,
             text,
             image: attachment,
+            audio: audioAttachment,
             isEphemeral
         });
         
@@ -173,6 +181,7 @@ const Chat: React.FC = () => {
             _id: Date.now().toString(), // temporary ID until fetch
             text,
             image: attachment,
+            audio: audioAttachment,
             senderId: currentUserObj._id,
             conversationId: activeConversation._id,
             seen: false
@@ -181,6 +190,7 @@ const Chat: React.FC = () => {
         
         setText('');
         setAttachment('');
+        setAudioAttachment('');
     };
 
     const handleAttachmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -189,6 +199,43 @@ const Chat: React.FC = () => {
             const reader = new FileReader();
             reader.onloadend = () => setAttachment(reader.result as string);
             reader.readAsDataURL(file);
+        }
+    };
+
+    const startRecording = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const mediaRecorder = new MediaRecorder(stream);
+            mediaRecorderRef.current = mediaRecorder;
+            audioChunksRef.current = [];
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    audioChunksRef.current.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = () => {
+                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                const reader = new FileReader();
+                reader.readAsDataURL(audioBlob);
+                reader.onloadend = () => {
+                    setAudioAttachment(reader.result as string);
+                };
+                stream.getTracks().forEach(track => track.stop());
+            };
+
+            mediaRecorder.start();
+            setIsRecording(true);
+        } catch (err) {
+            console.error("Error accessing microphone", err);
+        }
+    };
+
+    const stopRecording = () => {
+        if (mediaRecorderRef.current && isRecording) {
+            mediaRecorderRef.current.stop();
+            setIsRecording(false);
         }
     };
 
@@ -352,6 +399,9 @@ const Chat: React.FC = () => {
                                     {msg.image && (
                                         <img src={msg.image} style={{ maxWidth: '100%', borderRadius: '8px', marginBottom: msg.text ? '8px' : '0' }} alt="attachment" />
                                     )}
+                                    {msg.audio && (
+                                        <audio controls src={msg.audio} style={{ width: '250px', maxWidth: '100%', marginBottom: msg.text ? '8px' : '0' }} />
+                                    )}
                                     {msg.text}
                                     {isSent && <div className="message-status">{msg.seen ? 'Seen' : 'Delivered'}</div>}
                                 </div>
@@ -373,30 +423,56 @@ const Chat: React.FC = () => {
                                 <button onClick={() => setAttachment('')} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px', fontSize: '16px' }}>✕</button>
                             </div>
                         )}
+                        {audioAttachment && (
+                            <div style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <audio controls src={audioAttachment} style={{ height: '32px', flex: 1 }} />
+                                <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-muted)' }}>
+                                    <input type="checkbox" checked={isEphemeral} onChange={(e) => setIsEphemeral(e.target.checked)} />
+                                    ⏱️ 1hr Delete
+                                </label>
+                                <button onClick={() => setAudioAttachment('')} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px', fontSize: '16px' }}>✕</button>
+                            </div>
+                        )}
                         
                         <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '24px', padding: '4px 12px', gap: '8px', border: '1px solid var(--border)', width: '100%' }}>
-                            <input 
-                                type="text" 
-                                value={text} 
-                                onChange={handleTyping} 
-                                placeholder="Type a message..." 
-                                onKeyPress={e => e.key === 'Enter' && handleSendMessage()}
-                                style={{ flex: 1, background: 'transparent', border: 'none', color: 'white', padding: '12px 8px', outline: 'none', fontSize: '15px' }}
-                            />
+                            {isRecording ? (
+                                <div style={{ flex: 1, display: 'flex', alignItems: 'center', padding: '12px 8px', gap: '12px' }}>
+                                    <div style={{ width: '10px', height: '10px', background: '#ef4444', borderRadius: '50%', animation: 'pulse 1.5s infinite' }}></div>
+                                    <span style={{ color: '#ef4444', fontSize: '14px', fontWeight: 500, flex: 1 }}>Recording audio...</span>
+                                    <button onClick={stopRecording} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '16px', fontSize: '12px', cursor: 'pointer', fontWeight: 600 }}>Stop</button>
+                                </div>
+                            ) : (
+                                <input 
+                                    type="text" 
+                                    value={text} 
+                                    onChange={handleTyping} 
+                                    placeholder="Type a message..." 
+                                    onKeyPress={e => e.key === 'Enter' && handleSendMessage()}
+                                    style={{ flex: 1, background: 'transparent', border: 'none', color: 'white', padding: '12px 8px', outline: 'none', fontSize: '15px' }}
+                                />
+                            )}
                             
-                            <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--text-muted)', padding: '8px', margin: 0, transition: 'color 0.2s' }} title="Attach Image" className="icon-btn">
-                                <input type="file" accept="image/*" onChange={handleAttachmentChange} style={{ display: 'none' }} />
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
-                                </svg>
-                            </label>
-                            
-                            <button onClick={() => setShowCamera(true)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '8px', margin: 0, transition: 'color 0.2s' }} title="Camera" className="icon-btn">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-                                    <circle cx="12" cy="13" r="4"></circle>
-                                </svg>
-                            </button>
+                            {!isRecording && (
+                                <>
+                                    <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--text-muted)', padding: '8px', margin: 0, transition: 'color 0.2s' }} title="Attach Image" className="icon-btn">
+                                        <input type="file" accept="image/*" onChange={handleAttachmentChange} style={{ display: 'none' }} />
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+                                        </svg>
+                                    </label>
+                                    
+                                    <button onClick={() => setShowCamera(true)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '8px', margin: 0, transition: 'color 0.2s' }} title="Camera" className="icon-btn">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                                            <circle cx="12" cy="13" r="4"></circle>
+                                        </svg>
+                                    </button>
+
+                                    <button onClick={startRecording} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '8px', margin: 0, transition: 'color 0.2s' }} title="Record Audio" className="icon-btn">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                                    </button>
+                                </>
+                            )}
                             
                             <button onClick={handleSendMessage} style={{ background: 'var(--primary)', border: 'none', color: 'white', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', marginLeft: '4px', transition: 'all 0.2s' }} className="send-btn">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

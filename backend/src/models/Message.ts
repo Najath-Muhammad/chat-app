@@ -22,6 +22,10 @@ const messageSchema = new mongoose.Schema({
         type: String,
         default: ""
     },
+    audio: {
+        type: String,
+        default: ""
+    },
     expiresAt: {
         type: Date,
         expires: 0 // Automatically deletes the document when current time >= expiresAt

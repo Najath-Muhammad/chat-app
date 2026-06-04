@@ -22,10 +22,11 @@ export default (io: any) => {
         })
 
         socket.on("send-message", async(data: any) => {
-            const { senderId, receiverId, conversationId, text, image, isEphemeral } = data;
+            const { senderId, receiverId, conversationId, text, image, audio, isEphemeral } = data;
             
             const messageData: any = { senderId, conversationId, text, seen: false };
             if (image) messageData.image = image;
+            if (audio) messageData.audio = audio;
             if (isEphemeral) {
                 messageData.expiresAt = new Date(Date.now() + 60 * 60 * 1000);
             }
