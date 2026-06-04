@@ -35,4 +35,13 @@ export class AuthController implements IAuthController {
             res.status(500).json(error);
         }
     }
+
+    getAllUsers = async (req: Request, res: Response): Promise<any> => {
+        try {
+            const users = await this.authService.getAllUsersService();
+            res.json(users);
+        } catch (error) {
+            res.status(500).json(error);
+        }
+    }
 }

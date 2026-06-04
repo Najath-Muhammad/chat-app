@@ -9,4 +9,8 @@ export class AuthRepository implements IAuthRepository {
     async createUser(userData: any): Promise<any> {
         return await User.create(userData);
     }
+
+    async getAllUsers(): Promise<any> {
+        return await User.find({}, "-password");
+    }
 }

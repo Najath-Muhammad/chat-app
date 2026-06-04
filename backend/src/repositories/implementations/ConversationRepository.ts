@@ -9,6 +9,6 @@ export class ConversationRepository implements IConversationRepository {
     async findConversationsByUserId(userId: string): Promise<any> {
         return await Conversation.find({
             members: { $in: [userId] }
-        });
+        }).populate("members", "username email");
     }
 }

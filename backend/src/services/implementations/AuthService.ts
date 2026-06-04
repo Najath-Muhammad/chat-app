@@ -49,4 +49,8 @@ export class AuthService implements IAuthService {
 
         return { token, user };
     }
+
+    async getAllUsersService(): Promise<any> {
+        return await this.authRepository.getAllUsers();
+    }
 }
