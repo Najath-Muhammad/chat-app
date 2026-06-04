@@ -30,6 +30,21 @@ body.dark-mode {
   background-image: none;
 }
 
+/* Smooth theme transitions */
+body, 
+.chat-container, 
+.chat-sidebar, 
+.chat-main, 
+.chat-header, 
+.chat-input-area, 
+.auth-card, 
+.modal-content, 
+input, 
+textarea, 
+select {
+  transition: background-color 0.4s ease, border-color 0.4s ease, color 0.4s ease, box-shadow 0.4s ease !important;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -300,6 +315,31 @@ body {
 .send-btn:hover {
   background: var(--primary-hover) !important;
   transform: scale(1.05);
+}
+
+.action-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 12px;
+}
+
+.action-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-main);
+}
+
+.action-btn.logout:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
 }
 
 .no-chat-selected {
