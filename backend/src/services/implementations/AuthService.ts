@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { IAuthService } from "../interfaces/IAuthService";
 import { IAuthRepository } from "../../repositories/interfaces/IAuthRepository";
+import { MESSAGES } from "../../constants/messages";
 
 export class AuthService implements IAuthService {
     private authRepository: IAuthRepository;
@@ -15,7 +16,7 @@ export class AuthService implements IAuthService {
         const existingUser = await this.authRepository.findUserByEmail(email);
         
         if (existingUser) {
-            throw new Error("User already exists");
+            throw new Error(MESSAGES.USER_ALREADY_EXISTS);
         }
         
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -33,12 +34,12 @@ export class AuthService implements IAuthService {
         const user = await this.authRepository.findUserByEmail(email);
         
         if (!user) {
-            throw new Error("User not found");
+            throw new Error(MESSAGES.USER_NOT_FOUND);
         }
 
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
-            throw new Error("Invalid credentials");
+            throw new Error(MESSAGES.INVALID_CREDENTIALS);
         }
 
         const token = jwt.sign(

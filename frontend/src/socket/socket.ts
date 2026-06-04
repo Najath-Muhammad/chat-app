@@ -1,5 +1,5 @@
 import { io } from "socket.io-client";
 
-const socket = io("http://localhost:3000"); // Using 3000 as it's the backend port
+const socket = io(import.meta.env.VITE_SOCKET_URL as string);
 
 export default socket;

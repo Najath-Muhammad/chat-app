@@ -44,7 +44,7 @@ const Chat: React.FC = () => {
 
         const fetchUsers = async () => {
             try {
-                const res = await axios.get('http://localhost:3000/api/auth/users');
+                const res = await axios.get(`${import.meta.env.VITE_API_URL}/auth/users`);
                 // Exclude current user from the list
                 setUsers(res.data.filter((u: User) => u._id !== currentUser._id));
             } catch (error) {
@@ -82,14 +82,14 @@ const Chat: React.FC = () => {
         setActiveUser(user);
         try {
             // Create or get conversation
-            const res = await axios.post('http://localhost:3000/api/conversations', 
+            const res = await axios.post(`${import.meta.env.VITE_API_URL}/conversations`, 
                 { receiverId: user._id },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             setActiveConversation(res.data);
             
             // Fetch messages for this conversation
-            const msgRes = await axios.get(`http://localhost:3000/api/messages/${res.data._id}`, {
+            const msgRes = await axios.get(`${import.meta.env.VITE_API_URL}/messages/${res.data._id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setMessages(msgRes.data);
