@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import socket from '../socket/socket';
 
 interface Message {
@@ -9,79 +11,211 @@ interface Message {
     seen: boolean;
 }
 
+interface User {
+    _id: string;
+    username: string;
+    email: string;
+}
+
+interface Conversation {
+    _id: string;
+    members: User[];
+}
+
 const Chat: React.FC = () => {
+    const navigate = useNavigate();
+    const [users, setUsers] = useState<User[]>([]);
     const [messages, setMessages] = useState<Message[]>([]);
     const [text, setText] = useState('');
     const [isTyping, setIsTyping] = useState(false);
     
-    // Hardcoded for demo - these should come from your conversation selection
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    const senderId = user._id;
-    const receiverId = 'sample-receiver-id'; 
-    const conversationId = 'sample-conversation-id';
+    const [activeUser, setActiveUser] = useState<User | null>(null);
+    const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
 
-    // Step 32 - Receive Message & Step 34 - Backend Listen equivalent (Frontend receive typing)
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+    const token = localStorage.getItem('token');
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!token) {
+            navigate('/login');
+            return;
+        }
+
+        const fetchUsers = async () => {
+            try {
+                const res = await axios.get('http://localhost:3000/api/auth/users');
+                // Exclude current user from the list
+                setUsers(res.data.filter((u: User) => u._id !== currentUser._id));
+            } catch (error) {
+                console.error("Failed to fetch users");
+            }
+        };
+
+        fetchUsers();
+    }, [navigate, token, currentUser._id]);
+
     useEffect(() => {
         socket.on('receive-message', (message: Message) => {
-            setMessages(prev => [...prev, message]);
-            
-            // Step 35 - Emit Seen (auto-mark seen when received)
-            socket.emit('seen-message', { messageId: message._id });
+            if (activeConversation && message.conversationId === activeConversation._id) {
+                setMessages(prev => [...prev, message]);
+                socket.emit('seen-message', { messageId: message._id });
+            }
         });
 
         socket.on('show-typing', () => {
             setIsTyping(true);
-            setTimeout(() => setIsTyping(false), 2000); // hide after 2 seconds
+            setTimeout(() => setIsTyping(false), 2000);
         });
 
         return () => {
             socket.off('receive-message');
             socket.off('show-typing');
         };
-    }, []);
+    }, [activeConversation]);
+
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages, isTyping]);
+
+    const selectUser = async (user: User) => {
+        setActiveUser(user);
+        try {
+            // Create or get conversation
+            const res = await axios.post('http://localhost:3000/api/conversations', 
+                { receiverId: user._id },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            setActiveConversation(res.data);
+            
+            // Fetch messages for this conversation
+            const msgRes = await axios.get(`http://localhost:3000/api/messages/${res.data._id}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setMessages(msgRes.data);
+            
+            // Mark last messages as seen ideally, but for demo frontend:
+            msgRes.data.forEach((m: Message) => {
+                if (m.senderId !== currentUser._id && !m.seen) {
+                    socket.emit('seen-message', { messageId: m._id });
+                }
+            });
+            
+        } catch (error) {
+            console.error("Error setting up chat", error);
+        }
+    };
 
     const handleSendMessage = () => {
-        if (!text.trim()) return;
+        if (!text.trim() || !activeConversation || !activeUser) return;
         
-        // Step 31 - Send Message
         socket.emit('send-message', {
-            senderId,
-            receiverId,
-            conversationId,
+            senderId: currentUser._id,
+            receiverId: activeUser._id,
+            conversationId: activeConversation._id,
             text
         });
+        
+        // Optimistically add to UI (though server also broadcasts, but typically you add self message directly)
+        // For this architecture, let's wait for receive or add it manually.
+        // Wait, the backend only emits to receiver! We must add it manually to our UI:
+        setMessages(prev => [...prev, {
+            _id: Date.now().toString(),
+            text,
+            senderId: currentUser._id,
+            conversationId: activeConversation._id,
+            seen: false
+        }]);
         
         setText('');
     };
 
     const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
         setText(e.target.value);
-        
-        // Step 33 - Frontend Emit
-        socket.emit('typing', { receiverId });
+        if (activeUser) {
+            socket.emit('typing', { receiverId: activeUser._id });
+        }
+    };
+
+    const handleLogout = () => {
+        localStorage.clear();
+        navigate('/login');
     };
 
     return (
-        <div>
-            <h2>Chat</h2>
-            <div className="messages">
-                {messages.map(msg => (
-                    <div key={msg._id}>
-                        {msg.text} {msg.seen && <span>(Seen)</span>}
+        <div className="chat-container">
+            <div className="chat-sidebar">
+                <div className="sidebar-header">
+                    <h2>Chats</h2>
+                </div>
+                <div className="user-list">
+                    {users.map(user => (
+                        <div 
+                            key={user._id} 
+                            className={`user-item ${activeUser?._id === user._id ? 'active' : ''}`}
+                            onClick={() => selectUser(user)}
+                        >
+                            <div className="avatar">
+                                {user.username.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                                <div style={{ fontWeight: 600 }}>{user.username}</div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                <div style={{ padding: '16px', borderTop: '1px solid var(--border)' }}>
+                    <button onClick={handleLogout} style={{ background: 'transparent', color: 'var(--text-muted)', border: 'none', cursor: 'pointer' }}>
+                        Logout
+                    </button>
+                </div>
+            </div>
+
+            {activeUser ? (
+                <div className="chat-main">
+                    <div className="chat-header">
+                        <div className="avatar" style={{ width: 36, height: 36 }}>
+                            {activeUser.username.charAt(0).toUpperCase()}
+                        </div>
+                        <h3>{activeUser.username}</h3>
                     </div>
-                ))}
-                {isTyping && <div>User is typing...</div>}
-            </div>
-            
-            <div>
-                <input 
-                    type="text" 
-                    value={text} 
-                    onChange={handleTyping} 
-                    placeholder="Type a message..." 
-                />
-                <button onClick={handleSendMessage}>Send</button>
-            </div>
+                    
+                    <div className="messages-area">
+                        {messages.map(msg => {
+                            const isSent = msg.senderId === currentUser._id;
+                            return (
+                                <div key={msg._id} className={`message ${isSent ? 'sent' : 'received'}`}>
+                                    {msg.text}
+                                    {isSent && <div className="message-status">{msg.seen ? 'Seen' : 'Delivered'}</div>}
+                                </div>
+                            );
+                        })}
+                        {isTyping && <div className="typing-indicator">{activeUser.username} is typing...</div>}
+                        <div ref={messagesEndRef} />
+                    </div>
+
+                    <div className="chat-input-area">
+                        <input 
+                            type="text" 
+                            value={text} 
+                            onChange={handleTyping} 
+                            placeholder="Type your message..." 
+                            onKeyPress={e => e.key === 'Enter' && handleSendMessage()}
+                        />
+                        <button onClick={handleSendMessage}>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="22" y1="2" x2="11" y2="13"></line>
+                                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <div className="no-chat-selected">
+                    <h2>Welcome, {currentUser.username}!</h2>
+                    <p>Select a user from the sidebar to start chatting.</p>
+                </div>
+            )}
         </div>
     );
 };
