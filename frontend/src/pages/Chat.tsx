@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import socket from '../socket/socket';
 import AvatarEditor from 'react-avatar-editor';
+import Webcam from 'react-webcam';
 
 interface Message {
     _id: string;
@@ -49,6 +50,10 @@ const Chat: React.FC = () => {
     // Message Attachment State
     const [attachment, setAttachment] = useState<string>('');
     const [isEphemeral, setIsEphemeral] = useState(false);
+    
+    // Camera State
+    const [showCamera, setShowCamera] = useState(false);
+    const webcamRef = useRef<Webcam>(null);
 
     const token = localStorage.getItem('token');
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -180,6 +185,14 @@ const Chat: React.FC = () => {
             const reader = new FileReader();
             reader.onloadend = () => setAttachment(reader.result as string);
             reader.readAsDataURL(file);
+        }
+    };
+
+    const capturePhoto = () => {
+        const imageSrc = webcamRef.current?.getScreenshot();
+        if (imageSrc) {
+            setAttachment(imageSrc);
+            setShowCamera(false);
         }
     };
 
@@ -324,6 +337,14 @@ const Chat: React.FC = () => {
                                 <input type="file" accept="image/*" onChange={handleAttachmentChange} style={{ display: 'none' }} />
                                 📎 Attach Image
                             </label>
+                            
+                            <button 
+                                onClick={() => setShowCamera(true)}
+                                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            >
+                                📷 Camera
+                            </button>
+
                             {attachment && <span style={{ fontSize: '12px', color: 'var(--primary)' }}>Image attached! (Click 📎 to change)</span>}
                             
                             <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '14px', color: 'var(--text-muted)', marginLeft: 'auto' }}>
@@ -414,6 +435,26 @@ const Chat: React.FC = () => {
                         <div className="modal-actions">
                             <button className="btn-secondary" onClick={() => setShowProfileModal(false)}>Cancel</button>
                             <button className="btn-primary" onClick={handleSaveProfile} style={{ flex: 1, margin: 0 }}>Save</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showCamera && (
+                <div className="modal-overlay">
+                    <div className="modal-content" style={{ maxWidth: '600px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <h3>Take a Photo</h3>
+                        <Webcam
+                            audio={false}
+                            ref={webcamRef}
+                            screenshotFormat="image/jpeg"
+                            width="100%"
+                            videoConstraints={{ facingMode: "user" }}
+                            style={{ borderRadius: '12px', marginBottom: '16px' }}
+                        />
+                        <div className="modal-actions" style={{ width: '100%' }}>
+                            <button className="btn-secondary" onClick={() => setShowCamera(false)}>Cancel</button>
+                            <button className="btn-primary" onClick={capturePhoto} style={{ flex: 1, margin: 0 }}>Capture</button>
                         </div>
                     </div>
                 </div>
