@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import socket from '../socket/socket';
+import AvatarEditor from 'react-avatar-editor';
 
 interface Message {
     _id: string;
@@ -40,6 +41,9 @@ const Chat: React.FC = () => {
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [editBio, setEditBio] = useState('');
     const [editPic, setEditPic] = useState('');
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [scale, setScale] = useState(1.2);
+    const editorRef = useRef<any>(null);
 
     const token = localStorage.getItem('token');
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -179,25 +183,30 @@ const Chat: React.FC = () => {
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setEditPic(reader.result as string);
-            };
-            reader.readAsDataURL(file);
+            setSelectedFile(file);
         }
     };
 
     const handleSaveProfile = async () => {
         try {
+            let finalProfilePic = editPic;
+            
+            if (selectedFile && editorRef.current) {
+                const canvas = editorRef.current.getImageScaledToCanvas();
+                finalProfilePic = canvas.toDataURL();
+            }
+
             const res = await axios.put(`${import.meta.env.VITE_API_URL}/auth/profile`, {
                 bio: editBio,
-                profilePic: editPic
+                profilePic: finalProfilePic
             }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             localStorage.setItem('user', JSON.stringify(res.data));
             setCurrentUserObj(res.data);
             setShowProfileModal(false);
+            setSelectedFile(null);
+            setScale(1.2);
         } catch (error) {
             console.error('Failed to update profile');
         }
@@ -206,6 +215,8 @@ const Chat: React.FC = () => {
     const openProfileModal = () => {
         setEditBio(currentUserObj.bio || '');
         setEditPic(currentUserObj.profilePic || '');
+        setSelectedFile(null);
+        setScale(1.2);
         setShowProfileModal(true);
     };
 
@@ -323,15 +334,43 @@ const Chat: React.FC = () => {
                 <div className="modal-overlay">
                     <div className="modal-content">
                         <h3>Edit Profile</h3>
-                        <div style={{ textAlign: 'center' }}>
-                            {editPic ? (
-                                <img src={editPic} alt="Preview" className="profile-pic-preview" />
-                            ) : (
-                                <div className="profile-pic-preview" style={{ background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32 }}>
-                                    {currentUserObj.username.charAt(0).toUpperCase()}
+                        <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+                            {selectedFile ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                                    <AvatarEditor
+                                        ref={editorRef}
+                                        image={selectedFile}
+                                        width={120}
+                                        height={120}
+                                        border={20}
+                                        borderRadius={60}
+                                        color={[0, 0, 0, 0.6]}
+                                        scale={scale}
+                                        rotate={0}
+                                    />
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
+                                        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Zoom:</span>
+                                        <input 
+                                            type="range" 
+                                            value={scale} 
+                                            min="1" 
+                                            max="3" 
+                                            step="0.01" 
+                                            onChange={(e) => setScale(parseFloat(e.target.value))} 
+                                            style={{ flex: 1 }}
+                                        />
+                                    </div>
                                 </div>
+                            ) : (
+                                editPic ? (
+                                    <img src={editPic} alt="Preview" className="profile-pic-preview" />
+                                ) : (
+                                    <div className="profile-pic-preview" style={{ background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32 }}>
+                                        {currentUserObj.username.charAt(0).toUpperCase()}
+                                    </div>
+                                )
                             )}
-                            <input type="file" accept="image/*" onChange={handleFileChange} style={{ fontSize: '14px', marginBottom: '16px' }} />
+                            <input type="file" accept="image/*" onChange={handleFileChange} style={{ fontSize: '14px', marginTop: '16px' }} />
                         </div>
                         <textarea 
                             className="input-field" 
