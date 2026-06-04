@@ -54,6 +54,10 @@ const Chat: React.FC = () => {
     // Camera State
     const [showCamera, setShowCamera] = useState(false);
     const webcamRef = useRef<Webcam>(null);
+    
+    // Settings State
+    const [showSettings, setShowSettings] = useState(false);
+    const [settings, setSettings] = useState(() => JSON.parse(localStorage.getItem('app-settings') || '{}'));
 
     const token = localStorage.getItem('token');
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -196,6 +200,26 @@ const Chat: React.FC = () => {
         }
     };
 
+    const openSettings = () => {
+        setSettings(JSON.parse(localStorage.getItem('app-settings') || '{}'));
+        setShowSettings(true);
+    };
+
+    const handleSaveSettings = () => {
+        localStorage.setItem('app-settings', JSON.stringify(settings));
+        window.dispatchEvent(new Event('theme-changed'));
+        setShowSettings(false);
+    };
+    
+    const handleWallpaperChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => setSettings({...settings, wallpaper: reader.result as string});
+            reader.readAsDataURL(file);
+        }
+    };
+
     const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
         setText(e.target.value);
         if (activeUser) {
@@ -288,11 +312,14 @@ const Chat: React.FC = () => {
                         </div>
                     ))}
                 </div>
-                <div style={{ padding: '16px', borderTop: '1px solid var(--border)', display: 'flex', gap: '8px' }}>
-                    <button onClick={openProfileModal} style={{ background: 'transparent', color: 'var(--text-muted)', border: 'none', cursor: 'pointer', flex: 1 }}>
+                <div style={{ padding: '16px', borderTop: '1px solid var(--border)', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button onClick={openSettings} style={{ background: 'transparent', color: 'var(--text-muted)', border: 'none', cursor: 'pointer', flex: 1, minWidth: '25%' }}>
+                        Settings
+                    </button>
+                    <button onClick={openProfileModal} style={{ background: 'transparent', color: 'var(--text-muted)', border: 'none', cursor: 'pointer', flex: 1, minWidth: '25%' }}>
                         Profile
                     </button>
-                    <button onClick={handleLogout} style={{ background: 'transparent', color: 'var(--text-muted)', border: 'none', cursor: 'pointer', flex: 1 }}>
+                    <button onClick={handleLogout} style={{ background: 'transparent', color: 'var(--text-muted)', border: 'none', cursor: 'pointer', flex: 1, minWidth: '25%' }}>
                         Logout
                     </button>
                 </div>
@@ -462,6 +489,59 @@ const Chat: React.FC = () => {
                         <div className="modal-actions" style={{ width: '100%' }}>
                             <button className="btn-secondary" onClick={() => setShowCamera(false)}>Cancel</button>
                             <button className="btn-primary" onClick={capturePhoto} style={{ flex: 1, margin: 0 }}>Capture</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showSettings && (
+                <div className="modal-overlay">
+                    <div className="modal-content">
+                        <h3>App Settings</h3>
+                        
+                        <div style={{ marginBottom: '16px' }}>
+                            <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>Theme Mode</label>
+                            <select 
+                                value={settings.theme || 'default'} 
+                                onChange={e => setSettings({...settings, theme: e.target.value})}
+                                style={{ width: '100%', padding: '12px', borderRadius: '12px', background: 'var(--bg-dark)', color: 'var(--text-main)', border: '1px solid var(--border)' }}
+                            >
+                                <option value="default">Default</option>
+                                <option value="light">Light (Cream)</option>
+                                <option value="dark">Dark (Black)</option>
+                            </select>
+                        </div>
+                        
+                        <div style={{ marginBottom: '16px' }}>
+                            <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>Primary Color</label>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                {['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#3b82f6'].map(color => (
+                                    <button 
+                                        key={color}
+                                        onClick={() => setSettings({...settings, primaryColor: color})}
+                                        style={{ 
+                                            width: '32px', height: '32px', borderRadius: '50%', background: color, border: 'none', cursor: 'pointer',
+                                            boxShadow: settings.primaryColor === color || (!settings.primaryColor && color === '#6366f1') ? `0 0 0 3px var(--bg-panel), 0 0 0 5px ${color}` : 'none'
+                                        }}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                        
+                        <div style={{ marginBottom: '16px' }}>
+                            <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>Chat Wallpaper</label>
+                            {settings.wallpaper && (
+                                <div style={{ marginBottom: '8px', position: 'relative' }}>
+                                    <img src={settings.wallpaper} style={{ width: '100%', height: '100px', objectFit: 'cover', borderRadius: '8px' }} alt="Wallpaper Preview" />
+                                    <button onClick={() => setSettings({...settings, wallpaper: ''})} style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(0,0,0,0.5)', color: 'white', border: 'none', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer' }}>✕</button>
+                                </div>
+                            )}
+                            <input type="file" accept="image/*" onChange={handleWallpaperChange} style={{ fontSize: '14px' }} />
+                        </div>
+                        
+                        <div className="modal-actions">
+                            <button className="btn-secondary" onClick={() => setShowSettings(false)}>Cancel</button>
+                            <button className="btn-primary" onClick={handleSaveSettings} style={{ flex: 1, margin: 0 }}>Apply</button>
                         </div>
                     </div>
                 </div>
