@@ -62,9 +62,11 @@ const Chat: React.FC = () => {
     
     // Audio Recording State
     const [isRecording, setIsRecording] = useState(false);
+    const [recordingTime, setRecordingTime] = useState(0);
     const [audioAttachment, setAudioAttachment] = useState<string>('');
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const audioChunksRef = useRef<Blob[]>([]);
+    const timerIntervalRef = useRef<number | null>(null);
 
     const token = localStorage.getItem('token');
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -216,6 +218,7 @@ const Chat: React.FC = () => {
             };
 
             mediaRecorder.onstop = () => {
+                if (timerIntervalRef.current) window.clearInterval(timerIntervalRef.current);
                 const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
                 const reader = new FileReader();
                 reader.readAsDataURL(audioBlob);
@@ -227,6 +230,10 @@ const Chat: React.FC = () => {
 
             mediaRecorder.start();
             setIsRecording(true);
+            setRecordingTime(0);
+            timerIntervalRef.current = window.setInterval(() => {
+                setRecordingTime(prev => prev + 1);
+            }, 1000);
         } catch (err) {
             console.error("Error accessing microphone", err);
         }
@@ -236,7 +243,14 @@ const Chat: React.FC = () => {
         if (mediaRecorderRef.current && isRecording) {
             mediaRecorderRef.current.stop();
             setIsRecording(false);
+            if (timerIntervalRef.current) window.clearInterval(timerIntervalRef.current);
         }
+    };
+
+    const formatTime = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
     const capturePhoto = () => {
@@ -438,7 +452,9 @@ const Chat: React.FC = () => {
                             {isRecording ? (
                                 <div style={{ flex: 1, display: 'flex', alignItems: 'center', padding: '12px 8px', gap: '12px' }}>
                                     <div style={{ width: '10px', height: '10px', background: '#ef4444', borderRadius: '50%', animation: 'pulse 1.5s infinite' }}></div>
-                                    <span style={{ color: '#ef4444', fontSize: '14px', fontWeight: 500, flex: 1 }}>Recording audio...</span>
+                                    <span style={{ color: '#ef4444', fontSize: '14px', fontWeight: 500, flex: 1 }}>
+                                        Recording audio... {formatTime(recordingTime)}
+                                    </span>
                                     <button onClick={stopRecording} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '16px', fontSize: '12px', cursor: 'pointer', fontWeight: 600 }}>Stop</button>
                                 </div>
                             ) : (
