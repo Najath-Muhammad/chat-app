@@ -1,39 +1,42 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
-import socket from '../socket/socket';
 
-const Login: React.FC = () => {
+const Register: React.FC = () => {
+    const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const navigate = useNavigate();
 
-    const handleLogin = async (e: React.FormEvent) => {
+    const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const response = await axios.post('http://localhost:3000/api/auth/login', {
+            await axios.post('http://localhost:3000/api/auth/register', {
+                username,
                 email,
                 password
             });
-            
-            const { token, user } = response.data;
-            
-            localStorage.setItem('token', token);
-            localStorage.setItem('user', JSON.stringify(user));
-            
-            socket.emit('add-user', user._id);
-            navigate('/chat');
+            navigate('/login');
         } catch (error) {
-            console.error('Login failed', error);
+            console.error('Registration failed', error);
         }
     };
 
     return (
         <div className="auth-container">
             <div className="auth-card">
-                <h2>Welcome Back</h2>
-                <p>Sign in to continue to ChatApp</p>
-                <form className="auth-form" onSubmit={handleLogin}>
+                <h2>Create Account</h2>
+                <p>Join to start chatting with friends</p>
+                <form className="auth-form" onSubmit={handleRegister}>
+                    <div className="input-group">
+                        <input 
+                            type="text" 
+                            placeholder="Username" 
+                            value={username} 
+                            onChange={e => setUsername(e.target.value)} 
+                            required 
+                        />
+                    </div>
                     <div className="input-group">
                         <input 
                             type="email" 
@@ -52,14 +55,14 @@ const Login: React.FC = () => {
                             required 
                         />
                     </div>
-                    <button type="submit" className="btn-primary">Sign In</button>
+                    <button type="submit" className="btn-primary">Register</button>
                 </form>
                 <div className="auth-link">
-                    Don't have an account? <Link to="/register">Create one</Link>
+                    Already have an account? <Link to="/login">Login here</Link>
                 </div>
             </div>
         </div>
     );
 };
 
-export default Login;
+export default Register;
