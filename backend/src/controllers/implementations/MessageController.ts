@@ -19,4 +19,13 @@ export class MessageController implements IMessageController {
             res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json(error);
         }
     }
+
+    getUnreadCounts = async (req: AuthRequest, res: Response): Promise<any> => {
+        try {
+            const counts = await this.messageService.getUnreadCountsService(req.user.id);
+            res.status(STATUS_CODES.OK).json(counts);
+        } catch (error) {
+            res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json(error);
+        }
+    }
 }

@@ -10,6 +10,7 @@ const messageRepository = new MessageRepository();
 const messageService = new MessageService(messageRepository);
 const messageController = new MessageController(messageService);
 
+router.get("/unread", auth, messageController.getUnreadCounts);
 router.get("/:id", auth, messageController.getMessages);
 
 export default router;

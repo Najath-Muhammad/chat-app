@@ -31,6 +31,7 @@ const Chat: React.FC = () => {
     
     const [activeUser, setActiveUser] = useState<User | null>(null);
     const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
+    const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
 
     const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
     const token = localStorage.getItem('token');
@@ -42,17 +43,27 @@ const Chat: React.FC = () => {
             return;
         }
 
-        const fetchUsers = async () => {
+        const fetchUsersAndCounts = async () => {
             try {
                 const res = await axios.get(`${import.meta.env.VITE_API_URL}/auth/users`);
-                // Exclude current user from the list
                 setUsers(res.data.filter((u: User) => u._id !== currentUser._id));
+                
+                const countsRes = await axios.get(`${import.meta.env.VITE_API_URL}/messages/unread`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                
+                const countsMap: Record<string, number> = {};
+                countsRes.data.forEach((item: any) => {
+                    countsMap[item._id] = item.count;
+                });
+                setUnreadCounts(countsMap);
+                
             } catch (error) {
-                console.error("Failed to fetch users");
+                console.error("Failed to fetch users or counts");
             }
         };
 
-        fetchUsers();
+        fetchUsersAndCounts();
     }, [navigate, token, currentUser._id]);
 
     useEffect(() => {
@@ -60,6 +71,11 @@ const Chat: React.FC = () => {
             if (activeConversation && message.conversationId === activeConversation._id) {
                 setMessages(prev => [...prev, message]);
                 socket.emit('seen-message', { messageId: message._id });
+            } else {
+                setUnreadCounts(prev => ({
+                    ...prev,
+                    [message.senderId]: (prev[message.senderId] || 0) + 1
+                }));
             }
         });
 
@@ -80,6 +96,8 @@ const Chat: React.FC = () => {
 
     const selectUser = async (user: User) => {
         setActiveUser(user);
+        setUnreadCounts(prev => ({ ...prev, [user._id]: 0 }));
+        
         try {
             // Create or get conversation
             const res = await axios.post(`${import.meta.env.VITE_API_URL}/conversations`, 
@@ -161,6 +179,19 @@ const Chat: React.FC = () => {
                             <div>
                                 <div style={{ fontWeight: 600 }}>{user.username}</div>
                             </div>
+                            {unreadCounts[user._id] > 0 && (
+                                <div style={{ 
+                                    marginLeft: 'auto', 
+                                    background: '#ef4444', 
+                                    color: 'white', 
+                                    borderRadius: '50%', 
+                                    padding: '2px 8px', 
+                                    fontSize: '12px',
+                                    fontWeight: 'bold'
+                                }}>
+                                    {unreadCounts[user._id]}
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>
