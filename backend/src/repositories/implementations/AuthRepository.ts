@@ -13,4 +13,8 @@ export class AuthRepository implements IAuthRepository {
     async getAllUsers(): Promise<any> {
         return await User.find({}, "-password");
     }
+
+    async updateUser(userId: string, data: any): Promise<any> {
+        return await User.findByIdAndUpdate(userId, data, { new: true, select: "-password" });
+    }
 }

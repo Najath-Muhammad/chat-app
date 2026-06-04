@@ -15,6 +15,8 @@ interface User {
     _id: string;
     username: string;
     email: string;
+    profilePic?: string;
+    bio?: string;
 }
 
 interface Conversation {
@@ -32,8 +34,13 @@ const Chat: React.FC = () => {
     const [activeUser, setActiveUser] = useState<User | null>(null);
     const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
     const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
+    
+    // Profile Edit State
+    const [currentUserObj, setCurrentUserObj] = useState<User>(JSON.parse(localStorage.getItem('user') || '{}'));
+    const [showProfileModal, setShowProfileModal] = useState(false);
+    const [editBio, setEditBio] = useState('');
+    const [editPic, setEditPic] = useState('');
 
-    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
     const token = localStorage.getItem('token');
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -46,7 +53,7 @@ const Chat: React.FC = () => {
         const fetchUsersAndCounts = async () => {
             try {
                 const res = await axios.get(`${import.meta.env.VITE_API_URL}/auth/users`);
-                setUsers(res.data.filter((u: User) => u._id !== currentUser._id));
+                setUsers(res.data.filter((u: User) => u._id !== currentUserObj._id));
                 
                 const countsRes = await axios.get(`${import.meta.env.VITE_API_URL}/messages/unread`, {
                     headers: { Authorization: `Bearer ${token}` }
@@ -64,11 +71,11 @@ const Chat: React.FC = () => {
         };
 
         fetchUsersAndCounts();
-    }, [navigate, token, currentUser._id]);
+    }, [navigate, token, currentUserObj._id]);
 
     useEffect(() => {
         // Ensure socket is connected and user is registered, even after page refresh
-        socket.emit('add-user', currentUser._id);
+        socket.emit('add-user', currentUserObj._id);
 
         socket.on('receive-message', (message: Message) => {
             if (activeConversation && message.conversationId === activeConversation._id) {
@@ -96,7 +103,7 @@ const Chat: React.FC = () => {
             socket.off('message-seen');
             socket.off('show-typing');
         };
-    }, [activeConversation, currentUser._id]);
+    }, [activeConversation, currentUserObj._id]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -148,7 +155,7 @@ const Chat: React.FC = () => {
         const newMessage = {
             _id: Date.now().toString(), // temporary ID until fetch
             text,
-            senderId: currentUser._id,
+            senderId: currentUserObj._id,
             conversationId: activeConversation._id,
             seen: false
         };
@@ -169,6 +176,39 @@ const Chat: React.FC = () => {
         navigate('/login');
     };
 
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setEditPic(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleSaveProfile = async () => {
+        try {
+            const res = await axios.put(`${import.meta.env.VITE_API_URL}/auth/profile`, {
+                bio: editBio,
+                profilePic: editPic
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            localStorage.setItem('user', JSON.stringify(res.data));
+            setCurrentUserObj(res.data);
+            setShowProfileModal(false);
+        } catch (error) {
+            console.error('Failed to update profile');
+        }
+    };
+
+    const openProfileModal = () => {
+        setEditBio(currentUserObj.bio || '');
+        setEditPic(currentUserObj.profilePic || '');
+        setShowProfileModal(true);
+    };
+
     return (
         <div className="chat-container">
             <div className="chat-sidebar">
@@ -182,11 +222,16 @@ const Chat: React.FC = () => {
                             className={`user-item ${activeUser?._id === user._id ? 'active' : ''}`}
                             onClick={() => selectUser(user)}
                         >
-                            <div className="avatar">
-                                {user.username.charAt(0).toUpperCase()}
-                            </div>
+                            {user.profilePic ? (
+                                <img src={user.profilePic} alt="avatar" className="avatar" />
+                            ) : (
+                                <div className="avatar">
+                                    {user.username.charAt(0).toUpperCase()}
+                                </div>
+                            )}
                             <div>
                                 <div style={{ fontWeight: 600 }}>{user.username}</div>
+                                {user.bio && <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{user.bio}</div>}
                             </div>
                             {unreadCounts[user._id] > 0 && (
                                 <div style={{ 
@@ -204,8 +249,11 @@ const Chat: React.FC = () => {
                         </div>
                     ))}
                 </div>
-                <div style={{ padding: '16px', borderTop: '1px solid var(--border)' }}>
-                    <button onClick={handleLogout} style={{ background: 'transparent', color: 'var(--text-muted)', border: 'none', cursor: 'pointer' }}>
+                <div style={{ padding: '16px', borderTop: '1px solid var(--border)', display: 'flex', gap: '8px' }}>
+                    <button onClick={openProfileModal} style={{ background: 'transparent', color: 'var(--text-muted)', border: 'none', cursor: 'pointer', flex: 1 }}>
+                        Profile
+                    </button>
+                    <button onClick={handleLogout} style={{ background: 'transparent', color: 'var(--text-muted)', border: 'none', cursor: 'pointer', flex: 1 }}>
                         Logout
                     </button>
                 </div>
@@ -214,15 +262,22 @@ const Chat: React.FC = () => {
             {activeUser ? (
                 <div className="chat-main">
                     <div className="chat-header">
-                        <div className="avatar" style={{ width: 36, height: 36 }}>
-                            {activeUser.username.charAt(0).toUpperCase()}
+                        {activeUser.profilePic ? (
+                            <img src={activeUser.profilePic} alt="avatar" className="avatar" style={{ width: 36, height: 36 }} />
+                        ) : (
+                            <div className="avatar" style={{ width: 36, height: 36 }}>
+                                {activeUser.username.charAt(0).toUpperCase()}
+                            </div>
+                        )}
+                        <div>
+                            <h3>{activeUser.username}</h3>
+                            {activeUser.bio && <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{activeUser.bio}</div>}
                         </div>
-                        <h3>{activeUser.username}</h3>
                     </div>
                     
                     <div className="messages-area">
                         {messages.map(msg => {
-                            const isSent = msg.senderId === currentUser._id;
+                            const isSent = msg.senderId === currentUserObj._id;
                             return (
                                 <div key={msg._id} className={`message ${isSent ? 'sent' : 'received'}`}>
                                     {msg.text}
@@ -252,8 +307,43 @@ const Chat: React.FC = () => {
                 </div>
             ) : (
                 <div className="no-chat-selected">
-                    <h2>Welcome, {currentUser.username}!</h2>
-                    <p>Select a user from the sidebar to start chatting.</p>
+                    {currentUserObj.profilePic ? (
+                        <img src={currentUserObj.profilePic} alt="avatar" style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover' }} />
+                    ) : (
+                        <div className="avatar" style={{ width: 80, height: 80, fontSize: 32 }}>
+                            {currentUserObj.username.charAt(0).toUpperCase()}
+                        </div>
+                    )}
+                    <h2>Welcome, {currentUserObj.username}!</h2>
+                    <p>{currentUserObj.bio || "Select a user from the sidebar to start chatting."}</p>
+                </div>
+            )}
+
+            {showProfileModal && (
+                <div className="modal-overlay">
+                    <div className="modal-content">
+                        <h3>Edit Profile</h3>
+                        <div style={{ textAlign: 'center' }}>
+                            {editPic ? (
+                                <img src={editPic} alt="Preview" className="profile-pic-preview" />
+                            ) : (
+                                <div className="profile-pic-preview" style={{ background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32 }}>
+                                    {currentUserObj.username.charAt(0).toUpperCase()}
+                                </div>
+                            )}
+                            <input type="file" accept="image/*" onChange={handleFileChange} style={{ fontSize: '14px', marginBottom: '16px' }} />
+                        </div>
+                        <textarea 
+                            className="input-field" 
+                            placeholder="A little about yourself..." 
+                            value={editBio} 
+                            onChange={e => setEditBio(e.target.value)}
+                        />
+                        <div className="modal-actions">
+                            <button className="btn-secondary" onClick={() => setShowProfileModal(false)}>Cancel</button>
+                            <button className="btn-primary" onClick={handleSaveProfile} style={{ flex: 1, margin: 0 }}>Save</button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
