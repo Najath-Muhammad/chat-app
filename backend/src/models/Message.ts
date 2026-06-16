@@ -17,6 +17,26 @@ const messageSchema = new mongoose.Schema({
     seen: {
         type: Boolean,
         default: false
+    },
+    image: {
+        type: String,
+        default: ""
+    },
+    audio: {
+        type: String,
+        default: ""
+    },
+    reaction: {
+        type: String,
+        default: ""
+    },
+    replyTo: {
+        type: String, // Or ObjectId, string is simpler for frontend compatibility
+        default: null
+    },
+    expiresAt: {
+        type: Date,
+        expires: 0 // Automatically deletes the document when current time >= expiresAt
     }
 
 }, {

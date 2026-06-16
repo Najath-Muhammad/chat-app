@@ -1,5 +1,7 @@
 import jwt from "jsonwebtoken";
 import { Request, Response, NextFunction } from "express";
+import { STATUS_CODES } from "../constants/statusCodes";
+import { MESSAGES } from "../constants/messages";
 
 export interface AuthRequest extends Request {
     user?: any;
@@ -9,13 +11,15 @@ export const auth = (req: AuthRequest, res: Response, next: NextFunction): void 
 
     try {
 
-        const token = req.headers.authorization
+        const tokenHeader = req.headers.authorization;
 
-        if(!token) {
-            return res.status(401).json({
-                message: "No token"
+        if(!tokenHeader) {
+            return res.status(STATUS_CODES.UNAUTHORIZED).json({
+                message: MESSAGES.NO_TOKEN
             })
         }
+
+        const token = tokenHeader.startsWith("Bearer ") ? tokenHeader.split(" ")[1] : tokenHeader;
 
         const decoded = jwt.verify(
             token,
@@ -28,8 +32,8 @@ export const auth = (req: AuthRequest, res: Response, next: NextFunction): void 
 
     } catch (error) {
 
-        res.status(401).json({
-            message: "Invalid token"
+        res.status(STATUS_CODES.UNAUTHORIZED).json({
+            message: MESSAGES.INVALID_TOKEN
         })
     }
 }

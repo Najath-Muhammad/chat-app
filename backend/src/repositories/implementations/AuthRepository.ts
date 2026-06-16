@@ -1,0 +1,20 @@
+import User from "../../models/User";
+import { IAuthRepository } from "../interfaces/IAuthRepository";
+
+export class AuthRepository implements IAuthRepository {
+    async findUserByEmail(email: string): Promise<any> {
+        return await User.findOne({ email });
+    }
+
+    async createUser(userData: any): Promise<any> {
+        return await User.create(userData);
+    }
+
+    async getAllUsers(): Promise<any> {
+        return await User.find({}, "-password");
+    }
+
+    async updateUser(userId: string, data: any): Promise<any> {
+        return await User.findByIdAndUpdate(userId, data, { new: true, select: "-password" });
+    }
+}

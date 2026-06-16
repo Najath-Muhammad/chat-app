@@ -22,34 +22,55 @@ export default (io: any) => {
         })
 
         socket.on("send-message", async(data: any) => {
+            const { senderId, receiverId, conversationId, text, image, audio, isEphemeral, replyTo } = data;
+            
+            const messageData: any = { senderId, conversationId, text, seen: false };
+            if (image) messageData.image = image;
+            if (audio) messageData.audio = audio;
+            if (replyTo) messageData.replyTo = replyTo;
+            if (isEphemeral) {
+                messageData.expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+            }
 
-            const {
-                senderId,
-                receiverId,
-                conversationId,
-                text
-            } = data
+            const message = await Message.create(messageData);
 
-            const message =
-            await Message.create({
-                senderId,
-                conversationId,
-                text
-            })
-
-            const receiver =
-            users.find(
-                user => user.userId === receiverId
-            )
+            const receiver = users.find(user => user.userId === receiverId);
 
             if(receiver) {
-
-                io.to(receiver.socketId).emit(
-                    "receive-message",
-                    message
-                )
+                io.to(receiver.socketId).emit("receive-message", message);
             }
         })
+
+        socket.on("typing", ({ receiverId }: { receiverId: string }) => {
+            const receiver = users.find(user => user.userId === receiverId);
+            if (receiver) {
+                io.to(receiver.socketId).emit("show-typing");
+            }
+        });
+
+        socket.on("seen-message", async ({ messageId }: { messageId: string }) => {
+            const message = await Message.findByIdAndUpdate(messageId, { seen: true }, { new: true });
+            if (message) {
+                const sender = users.find(user => user.userId === message.senderId.toString());
+                if (sender) {
+                    io.to(sender.socketId).emit("message-seen", { messageId: message._id });
+                }
+            }
+        });
+
+        socket.on('react-message', async (data: any) => {
+            const { messageId, reaction, receiverId } = data;
+            try {
+                const Message = require('../models/Message').default;
+                await Message.findByIdAndUpdate(messageId, { reaction });
+                const receiverSocket = users.find(user => user.userId === receiverId);
+                if (receiverSocket) {
+                    io.to(receiverSocket.socketId).emit('message-reaction', { messageId, reaction });
+                }
+            } catch (error) {
+                console.error("Error saving reaction:", error);
+            }
+        });
 
         socket.on("disconnect", () => {
             users = users.filter(
